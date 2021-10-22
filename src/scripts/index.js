@@ -1,4 +1,5 @@
 'use strict';
+import 'regenerator-runtime/runtime'
 
 const action = document.querySelector('.action');
 const templateImageCard = document.querySelector('#image');
@@ -11,15 +12,14 @@ const popupClose = document.querySelector('.popup .action');
 const loader = document.querySelector('.loader');
 
 const MAX_PAGE_IAMGES = 34;
-let loaderTimeout;
 
 /**
  * Функция задаёт первоначальное состояние страницы.
- * Отправляется первый запрос за картинками, юез параметров т.к. с дефолтными настройками.
+ * Отправляется первый запрос за картинками, без параметров т.к. с дефолтными настройками.
  */
-const initialState = function () {
+const initialState = async function () {    
+    await getPictures();
     action.disabled = false;
-    getPictures();
 }
 
 /**
@@ -28,11 +28,13 @@ const initialState = function () {
  * @param {number} page
  * @param {number} limit
  */
-const getPictures = function (page = 1, limit = 10) {
+const getPictures = async function (page = 1, limit = 10) {
+    action.disabled = true;
     showLoader();
-    fetch(`https://picsum.photos/v2/list?page=${page};limit=${limit}`)
+    await fetch(`https://picsum.photos/v2/list?page=${page};limit=${limit}`)
         .then(function (response) {return response.json()})
         .then(function (result) {renderPictures(result)})
+    action.disabled = false;    
 }
 
 /**
@@ -60,9 +62,8 @@ const showLoader = function () {
  * Удаляет таймаут индикатора, ничего не возвращает.
  */
 const hideLoader = function () {
-    loaderTimeout = setTimeout(function () {
+    setTimeout(function () {
         loader.style.visibility = 'hidden';
-        loaderTimeout.clearTimeout();
     }, 700);
 }
 
@@ -91,19 +92,20 @@ const renderPictures = function (list) {
         throw Error(`Pictures not defined. The list length: ${list.length}`);
     }
 
-    const clone = templateImageCard.content.cloneNode(true);
     const fragment = document.createDocumentFragment();
 
     list.forEach(function (element) {
+        const clone = templateImageCard.content.cloneNode(true);
         const link = clone.querySelector('a');
 
         link.href = element.url;
-        link.dataset.id = element.id;
 
         const image = clone.querySelector('img');
         image.src = cropImage(element.download_url, 5);
         image.alt = element.author;
+        image.dataset.id = element.id;
         image.classList.add('preview');
+
         fragment.appendChild(clone)
     });
 
@@ -151,14 +153,16 @@ const togglePopup = function () {
  */
 const actionHandler = function (evt) {
     evt.preventDefault();
-    const nextPage = evt.currentTarget.dataset.page;
-    evt.currentTarget.dataset.page = nextPage + 1;
+    let nextPage = Number(evt.currentTarget.dataset.page);
+
+    getPictures(nextPage);
+
+    nextPage += 1;
+    evt.currentTarget.dataset.page = nextPage;
 
     if (nextPage > MAX_PAGE_IAMGES) {
-        console.warn(`WARN: You are trying to call a page that exceeds ${MAX_PAGE_IAMGES}`);
+        console.warn(`WARN: Вы можете загрузить не больше ${MAX_PAGE_IAMGES} страниц`);
         evt.currentTarget.disabled = true;
-    } else {
-        getPictures(nextPage);
     }
 }
 
